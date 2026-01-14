@@ -126,4 +126,8 @@
   html {
     @apply font-sans;
     }
+
+  .Spreadsheet, .Spreadsheet * {
+    color: var(--secondary-background) !important;
+  }
 }

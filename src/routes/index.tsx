@@ -7,6 +7,7 @@ import Spreadsheet, {
 } from "react-spreadsheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import mockDb from "../mock.xlsx?url";
 import workbookUrl from "../output_template.xlsx?url";
 
 interface Cell extends CellBase {
@@ -48,15 +49,16 @@ export const Route = createFileRoute("/")({
 		const arrayBuffer = await response.arrayBuffer();
 		const workbook = new Excel.Workbook();
 		await workbook.xlsx.load(arrayBuffer);
-
 		const CONTENTS_SHEET = workbook.worksheets[0];
 		const EXTRA_SHEET = workbook.worksheets[1];
 		const OUTPUT_PAGE_SHEET = workbook.worksheets[2];
-		const DB_SHEET = workbook.worksheets[3];
 
-		const sheet = DB_SHEET;
+		const mockResponse = await fetch(mockDb);
+		const mockArrayBuffer = await mockResponse.arrayBuffer();
+		const mockWorkbook = new Excel.Workbook();
+		await mockWorkbook.xlsx.load(mockArrayBuffer);
+		const sheet = mockWorkbook.worksheets[0];
 
-		const sheetName = sheet.name;
 		const matrix = Array.from({ length: sheet.actualRowCount }, () =>
 			Array.from(
 				{ length: sheet.actualColumnCount },
@@ -81,8 +83,6 @@ export const Route = createFileRoute("/")({
 					matrix[row][col].cell = cell;
 					matrix[row][col].value = cell.value;
 				}
-
-				console.log(cell.style);
 			});
 		});
 
