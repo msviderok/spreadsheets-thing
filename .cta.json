@@ -1,0 +1,19 @@
+{
+  "initialized": true,
+  "mode": "file-router",
+  "projectName": "my-app",
+  "typescript": true,
+  "tailwind": true,
+  "git": true,
+  "addOnOptions": {},
+  "packageManager": "bun",
+  "version": 1,
+  "framework": "react-cra",
+  "chosenAddOns": [
+    "compiler",
+    "shadcn",
+    "start",
+    "biome",
+    "nitro"
+  ]
+}
