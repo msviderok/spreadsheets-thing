@@ -130,4 +130,8 @@
   .Spreadsheet, .Spreadsheet * {
     color: var(--secondary-background) !important;
   }
+
+  td[data-header="true"] {
+    @apply bg-red-500;
+  }
 }
