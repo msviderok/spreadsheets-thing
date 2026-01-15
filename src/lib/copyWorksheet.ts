@@ -1,5 +1,45 @@
 import Excel from "exceljs";
 
+/**
+ * Copies all properties from a source cell to a target cell
+ */
+export function copyCellProperties(
+	sourceCell: Excel.Cell,
+	targetCell: Excel.Cell,
+): void {
+	// Copy cell value
+	if (sourceCell.type === Excel.ValueType.Formula) {
+		const formulaValue = sourceCell.value as Excel.CellFormulaValue;
+		targetCell.value = {
+			formula: formulaValue.formula,
+			result: formulaValue.result,
+		};
+	} else {
+		targetCell.value = sourceCell.value;
+	}
+
+	// Copy all cell properties
+	if (sourceCell.style) {
+		targetCell.style = JSON.parse(JSON.stringify(sourceCell.style));
+	}
+	if (sourceCell.numFmt) targetCell.numFmt = sourceCell.numFmt;
+	if (sourceCell.border) {
+		targetCell.border = JSON.parse(JSON.stringify(sourceCell.border));
+	}
+	if (sourceCell.fill) {
+		targetCell.fill = JSON.parse(JSON.stringify(sourceCell.fill));
+	}
+	if (sourceCell.font) {
+		targetCell.font = JSON.parse(JSON.stringify(sourceCell.font));
+	}
+	if (sourceCell.alignment) {
+		targetCell.alignment = JSON.parse(JSON.stringify(sourceCell.alignment));
+	}
+	if (sourceCell.protection) {
+		targetCell.protection = JSON.parse(JSON.stringify(sourceCell.protection));
+	}
+}
+
 export function copyWorksheet({
 	template,
 	workbook,
@@ -15,27 +55,7 @@ export function copyWorksheet({
 	template.eachRow({ includeEmpty: true }, (row, rowNumber) => {
 		row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
 			const newCell = newSheet.getCell(rowNumber, colNumber);
-
-			// Copy cell value
-			if (cell.type === Excel.ValueType.Formula) {
-				const formulaValue = cell.value as Excel.CellFormulaValue;
-				newCell.value = {
-					formula: formulaValue.formula,
-					result: formulaValue.result,
-				};
-			} else {
-				newCell.value = cell.value;
-			}
-
-			if (cell.style) newCell.style = JSON.parse(JSON.stringify(cell.style));
-			if (cell.numFmt) newCell.numFmt = cell.numFmt;
-			if (cell.border) newCell.border = JSON.parse(JSON.stringify(cell.border));
-			if (cell.fill) newCell.fill = JSON.parse(JSON.stringify(cell.fill));
-			if (cell.font) newCell.font = JSON.parse(JSON.stringify(cell.font));
-			if (cell.alignment)
-				newCell.alignment = JSON.parse(JSON.stringify(cell.alignment));
-			if (cell.protection)
-				newCell.protection = JSON.parse(JSON.stringify(cell.protection));
+			copyCellProperties(cell, newCell);
 		});
 	});
 

@@ -16,12 +16,7 @@ async function getTemplates() {
 	const arrayBuffer = await response.arrayBuffer();
 	const workbook = new Excel.Workbook();
 	await workbook.xlsx.load(arrayBuffer);
-	return {
-		workbook,
-		contents: initMatrix(workbook.worksheets[0], "contents"),
-		extra: initMatrix(workbook.worksheets[1], "extra"),
-		outputPage: initMatrix(workbook.worksheets[2], "output_page"),
-	};
+	return { workbook };
 }
 
 export const loader = async () => {
