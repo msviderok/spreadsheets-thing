@@ -18,13 +18,17 @@
 	},
 	"formatter": {
 		"enabled": true,
-		"indentStyle": "tab"
+		"indentStyle": "tab",
+		"lineWidth": 120
 	},
 	"assist": { "actions": { "source": { "organizeImports": "on" } } },
 	"linter": {
 		"enabled": true,
 		"rules": {
 			"recommended": true,
+			"correctness": {
+				"useUniqueElementIds": "off"
+			},
 			"style": {
 				"noNonNullAssertion": "off"
 			},
@@ -39,4 +43,3 @@
 		}
 	}
 }
-

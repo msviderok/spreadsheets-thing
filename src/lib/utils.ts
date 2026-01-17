@@ -5,69 +5,43 @@ export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));
 }
 
-export const indexedColors = [
-	"000000",
-	"FFFFFF",
-	"FF0000",
-	"00FF00",
-	"0000FF",
-	"FFFF00",
-	"FF00FF",
-	"00FFFF",
-	"000000",
-	"FFFFFF",
-	"FF0000",
-	"00FF00",
-	"0000FF",
-	"FFFF00",
-	"FF00FF",
-	"00FFFF",
-	"800000",
-	"008000",
-	"000080",
-	"808000",
-	"800080",
-	"008080",
-	"C0C0C0",
-	"808080",
-	"9999FF",
-	"993366",
-	"FFFFCC",
-	"CCFFFF",
-	"660066",
-	"FF8080",
-	"0066CC",
-	"CCCCFF",
-	"000080",
-	"FF00FF",
-	"FFFF00",
-	"00FFFF",
-	"800080",
-	"800000",
-	"008080",
-	"0000FF",
-	"00CCFF",
-	"CCFFFF",
-	"CCFFCC",
-	"FFFF99",
-	"99CCFF",
-	"FF99CC",
-	"CC99FF",
-	"FFCC99",
-	"3366FF",
-	"33CCCC",
-	"99CC00",
-	"FFCC00",
-	"FF9900",
-	"FF6600",
-	"666699",
-	"969696",
-	"003366",
-	"339966",
-	"003300",
-	"333300",
-	"993300",
-	"993366",
-	"333399",
-	"333333",
-];
+export function sanitizeStr(name: string): string {
+	let sanitized = name.replace(/[:\\/?*[\]]/g, "");
+
+	sanitized = sanitized.replace(/^['\s]+|['\s]+$/g, "");
+
+	if (sanitized.length > 31) {
+		sanitized = sanitized.substring(0, 31);
+	}
+
+	if (!sanitized || sanitized.trim().length === 0) {
+		sanitized = "Сторінка";
+	}
+
+	return sanitized;
+}
+
+export function formatDate(date: string): string {
+	return Intl.DateTimeFormat("uk-UA", {
+		day: "2-digit",
+		month: "2-digit",
+		year: "numeric",
+	}).format(date as any);
+}
+
+export const CATEGORY_MAP: Record<any, number> = {
+	I: 0,
+	І: 0,
+	1: 0,
+	II: 1,
+	ІІ: 1,
+	2: 1,
+	III: 2,
+	ІІІ: 2,
+	3: 2,
+	IV: 3,
+	ІV: 3,
+	4: 3,
+	V: 4,
+	5: 4,
+};
