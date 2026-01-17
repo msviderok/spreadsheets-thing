@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import Excel from "exceljs";
 import fileSaver from "file-saver";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/button";
 import DataPreview from "@/components/DataPreview";
 import { Input } from "@/components/input";
 import { Label } from "@/components/label";
@@ -26,6 +27,7 @@ export const Route = createFileRoute("/")({
 function App() {
 	const workbook = Route.useLoaderData();
 	const [sheet, setSheet] = useState<Excel.Worksheet>();
+	const [buffer, setBuffer] = useState<ArrayBuffer>();
 	useEffect(() => void loadInputFile().then(setSheet), []);
 
 	useEffect(() => {
@@ -33,7 +35,7 @@ function App() {
 
 		const data = processData(sheet);
 		if (data) {
-			generateOutputFile(data, workbook);
+			generateOutputFile(data, workbook).then(setBuffer);
 		}
 	}, [sheet]);
 
@@ -46,20 +48,37 @@ function App() {
 
 			{sheet && <DataPreview sheet={sheet} />}
 
-			{/* 
-			<Button onClick={() => generateOutputFile([], workbook)}>
+			<Button
+				onClick={() => {
+					if (buffer) {
+						fileSaver.saveAs(new Blob([buffer]), "output.xlsx");
+					}
+				}}
+			>
 				Generate Output
-			</Button> */}
+			</Button>
 		</div>
 	);
 }
 
-const INPUT_RANGE = ["A1:J1"];
-
 declare global {
 	interface Statement {
 		date: string;
-		entities: { [entity: string]: { [category: number]: number } };
+		docName?: string;
+		docNumber?: string;
+		docDate?: string;
+		from?: string;
+		to?: string;
+		quantityIn?: number;
+		quantityOut?: number;
+		entities: {
+			[entity: string]: {
+				operation: 1 | -1;
+				categories: {
+					[category: number]: number;
+				};
+			};
+		};
 	}
 	interface Data {
 		entities: Set<string>;
@@ -112,23 +131,59 @@ function processData(sheet: Excel.Worksheet | undefined) {
 			}
 
 			if (!data.list[name]!.leftovers.entities[to]) {
-				data.list[name]!.leftovers.entities[to] = {};
+				data.list[name]!.leftovers.entities[to] = { operation: 1, categories: {} };
 			}
 
-			data.list[name]!.leftovers.entities[to][category] = Number(quantity);
+			data.list[name]!.leftovers.entities[to].categories[category] = Number(quantity);
 		} else {
-			// data.list[name]!.statements.push({
-			// 	date: formatDate(date),
-			// 	entities: { [from]: [Number(quantity)] },
-			// });
+			const knownFrom = data.entitiesArray.includes(from);
+			const knownTo = data.entitiesArray.includes(to);
+
+			const q = Number(quantity);
+			let quantityIn: number | undefined;
+			let quantityOut: number | undefined;
+			let entities: Statement["entities"] = {};
+
+			if (knownFrom && knownTo) {
+				quantityIn = q;
+				quantityOut = undefined;
+				entities = {
+					[from]: { operation: -1, categories: { [category]: q } },
+					[to]: { operation: 1, categories: { [category]: q } },
+				};
+			} else if (knownFrom && (knownTo === false || to == null || to === "")) {
+				quantityIn = undefined;
+				quantityOut = q;
+				entities = {
+					[from]: { operation: -1, categories: { [category]: q } },
+				};
+			} else if ((knownFrom === false || from == null || from === "") && knownTo) {
+				quantityIn = q;
+				quantityOut = undefined;
+				entities = {
+					[to]: { operation: 1, categories: { [category]: q } },
+				};
+			}
+
+			data.list[name]!.statements.push({
+				date: formatDate(date),
+				docName,
+				docNumber,
+				docDate: formatDate(docDate),
+				from,
+				to,
+				quantityIn,
+				quantityOut,
+				entities,
+			});
 		}
 	}
 
-	// console.log(data);
+	console.log(data);
 	return data;
 }
 
-async function generateOutputFile(data: Data, templateWorkbook: Excel.Workbook): Promise<Buffer | ArrayBuffer> {
+async function generateOutputFile(data: Data, templateWorkbook: Excel.Workbook) {
 	const newWorkbook = new Excel.Workbook();
 
 	buildOutputPages({
@@ -144,7 +199,6 @@ async function generateOutputFile(data: Data, templateWorkbook: Excel.Workbook):
 	});
 
 	const buffer = await newWorkbook.xlsx.writeBuffer();
-	fileSaver.saveAs(new Blob([buffer]), "output.xlsx");
 	return buffer;
 }
 

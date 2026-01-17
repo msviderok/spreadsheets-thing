@@ -15,11 +15,21 @@ export function copyCellProperties(sourceCell: Excel.Cell, targetCell: Excel.Cel
 		targetCell.value = sourceCell.value;
 	}
 
-	// Copy all cell properties
+	if (sourceCell.numFmt) targetCell.numFmt = sourceCell.numFmt;
+
+	if (sourceCell.protection) {
+		targetCell.protection = JSON.parse(JSON.stringify(sourceCell.protection));
+	}
+
 	if (sourceCell.style) {
 		targetCell.style = JSON.parse(JSON.stringify(sourceCell.style));
 	}
-	if (sourceCell.numFmt) targetCell.numFmt = sourceCell.numFmt;
+
+	copyCellStyle(sourceCell, targetCell);
+}
+
+export function copyCellStyle(sourceCell: Excel.Cell, targetCell: Excel.Cell): void {
+	// Copy all cell properties
 	if (sourceCell.border) {
 		targetCell.border = JSON.parse(JSON.stringify(sourceCell.border));
 	}
@@ -31,9 +41,6 @@ export function copyCellProperties(sourceCell: Excel.Cell, targetCell: Excel.Cel
 	}
 	if (sourceCell.alignment) {
 		targetCell.alignment = JSON.parse(JSON.stringify(sourceCell.alignment));
-	}
-	if (sourceCell.protection) {
-		targetCell.protection = JSON.parse(JSON.stringify(sourceCell.protection));
 	}
 }
 
