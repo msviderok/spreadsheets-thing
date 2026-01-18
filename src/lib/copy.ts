@@ -1,4 +1,4 @@
-import Excel from "exceljs";
+import type Excel from "exceljs";
 
 export function copyCellProperties(sourceCell: Excel.Cell, targetCell: Excel.Cell): void {
 	targetCell.value = sourceCell.value;
@@ -27,190 +27,27 @@ export function copyWorksheet({
 }): Excel.Worksheet {
 	const newSheet = workbook.addWorksheet(newSheetName);
 
-	// Copy all cells with their values, styles, and formulas
 	template.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+		const newRow = newSheet.getRow(rowNumber);
+		newRow.height = row.height;
+		newRow.hidden = row.hidden;
 		row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
 			const newCell = newSheet.getCell(rowNumber, colNumber);
 			copyCellProperties(cell, newCell);
 		});
 	});
 
-	// Copy merged cells using the merges property
 	if (template.model?.merges) {
 		template.model.merges.forEach((mergeRange) => {
-			if (mergeRange) {
-				newSheet.mergeCells(mergeRange);
-			}
+			newSheet.mergeCells(mergeRange);
 		});
 	}
 
-	// Copy column widths
 	template.columns.forEach((column, index) => {
-		if (column.width !== undefined) {
-			const newColumn = newSheet.getColumn(index + 1);
-			newColumn.width = column.width;
-		}
-	});
-
-	// Copy row heights and hidden state
-	template.eachRow((row, rowNumber) => {
-		const newRow = newSheet.getRow(rowNumber);
-		if (row.height !== undefined) {
-			newRow.height = row.height;
-		}
-		if (row.hidden !== undefined) {
-			newRow.hidden = row.hidden;
-		}
+		newSheet.getColumn(index + 1).width = column.width;
 	});
 
 	return newSheet;
-}
-
-/**
- * Helper function to convert column letter to number
- */
-function colToNumber(col: string): number {
-	let total = 0;
-	for (const char of col) {
-		total = total * 26 + (char.charCodeAt(0) - 64);
-	}
-	return total;
-}
-
-/**
- * Helper function to convert column number to letter
- */
-export function numberToCol(num: number): string {
-	let result = "";
-	let n = num;
-	while (n > 0) {
-		const remainder = (n - 1) % 26;
-		result = String.fromCharCode(65 + remainder) + result;
-		n = Math.floor((n - 1) / 26);
-	}
-	return result;
-}
-
-/**
- * Helper function to parse merged cell range
- */
-function parseMergeRange(range: string) {
-	const match = range.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
-	if (!match) return null;
-	const [, startCol, startRow, endCol, endRow] = match;
-
-	return {
-		startRow: Number(startRow),
-		endRow: Number(endRow),
-		startCol: colToNumber(startCol),
-		endCol: colToNumber(endCol),
-		numberToCol,
-	};
-}
-
-/**
- * Copies a header column group from template sheet to target sheet
- * This includes copying cells, column widths, and merged cells in the header range
- */
-export function copyHeaderColumnGroup({
-	templateSheet,
-	targetSheet,
-	sourceStartCol,
-	sourceEndCol,
-	targetStartCol,
-	headerRows,
-}: {
-	templateSheet: Excel.Worksheet;
-	targetSheet: Excel.Worksheet;
-	sourceStartCol: number;
-	sourceEndCol: number;
-	targetStartCol: number;
-	headerRows: number;
-}): void {
-	const colOffset = targetStartCol - sourceStartCol;
-	const columnsPerGroup = sourceEndCol - sourceStartCol + 1;
-
-	// Copy all cells in header range (rows 1-headerRows, columns sourceStartCol-sourceEndCol) from template
-	for (let headerRow = 1; headerRow <= headerRows; headerRow++) {
-		for (let colIdx = 0; colIdx < columnsPerGroup; colIdx++) {
-			const sourceCol = sourceStartCol + colIdx;
-			const targetCol = targetStartCol + colIdx;
-			const sourceCell = templateSheet.getCell(headerRow, sourceCol);
-			const targetCell = targetSheet.getCell(headerRow, targetCol);
-			copyCellProperties(sourceCell, targetCell);
-		}
-	}
-
-	// Copy column widths from template to new column group
-	for (let colIdx = 0; colIdx < columnsPerGroup; colIdx++) {
-		const sourceCol = sourceStartCol + colIdx;
-		const targetCol = targetStartCol + colIdx;
-		const sourceColumn = templateSheet.getColumn(sourceCol);
-		const targetColumn = targetSheet.getColumn(targetCol);
-		if (sourceColumn.width !== undefined) {
-			targetColumn.width = sourceColumn.width;
-		}
-	}
-
-	// Copy merged cells that overlap with the header range from the template
-	if (templateSheet.model?.merges) {
-		templateSheet.model.merges.forEach((mergeRange) => {
-			if (!mergeRange) return;
-
-			const parsed = parseMergeRange(mergeRange);
-			if (!parsed) return;
-
-			// Check if merge is within header rows (1-headerRows) and overlaps with source columns
-			const isInHeaderRows =
-				parsed.startRow >= 1 && parsed.startRow <= headerRows && parsed.endRow >= 1 && parsed.endRow <= headerRows;
-
-			const overlapsSourceColumns = parsed.startCol <= sourceEndCol && parsed.endCol >= sourceStartCol;
-
-			if (isInHeaderRows && overlapsSourceColumns) {
-				// Calculate the intersection with our source column range
-				const intersectStartRow = Math.max(parsed.startRow, 1);
-				const intersectEndRow = Math.min(parsed.endRow, headerRows);
-				const intersectStartCol = Math.max(parsed.startCol, sourceStartCol);
-				const intersectEndCol = Math.min(parsed.endCol, sourceEndCol);
-
-				// Only merge if we have more than one cell
-				const hasMultipleCells = intersectEndRow > intersectStartRow || intersectEndCol > intersectStartCol;
-
-				if (hasMultipleCells) {
-					// Translate to target column group
-					const targetStartRow = intersectStartRow;
-					const targetEndRow = intersectEndRow;
-					const targetStartColNum = intersectStartCol + colOffset;
-					const targetEndColNum = intersectEndCol + colOffset;
-
-					// Create new merge range
-					const newRange = `${parsed.numberToCol(targetStartColNum)}${targetStartRow}:${parsed.numberToCol(targetEndColNum)}${targetEndRow}`;
-
-					// Check if cells are already merged - if so, unmerge first
-					const startCell = targetSheet.getCell(targetStartRow, targetStartColNum);
-					if (startCell.isMerged) {
-						try {
-							targetSheet.unMergeCells(newRange);
-						} catch {
-							// Ignore unmerge errors
-						}
-					}
-
-					try {
-						targetSheet.mergeCells(newRange);
-					} catch {
-						// Merge might already exist or be invalid
-						// Try alternative merge method using coordinates
-						try {
-							targetSheet.mergeCells(targetStartRow, targetStartColNum, targetEndRow, targetEndColNum);
-						} catch {
-							// If all methods fail, skip this merge
-						}
-					}
-				}
-			}
-		});
-	}
 }
 
 /**
@@ -224,67 +61,52 @@ export function copyCellRange({
 	sourceRange,
 	targetStartCell,
 }: {
-	sourceSheet: Excel.Worksheet;
+	sourceSheet?: Excel.Worksheet;
 	targetSheet: Excel.Worksheet;
 	sourceRange: string;
 	targetStartCell: string;
 }): void {
-	// Parse source range
+	const src = sourceSheet ?? targetSheet;
 	const sourceMatch = sourceRange.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
 	if (!sourceMatch) throw new Error(`Invalid source range: ${sourceRange}`);
 	const [, sourceStartCol, sourceStartRow, sourceEndCol, sourceEndRow] = sourceMatch;
-	const sourceStartColNum = colToNumber(sourceStartCol);
-	const sourceEndColNum = colToNumber(sourceEndCol);
+	const sourceStartColNum = src.getColumn(sourceStartCol).number;
+	const sourceEndColNum = src.getColumn(sourceEndCol).number;
 	const sourceStartRowNum = Number(sourceStartRow);
 	const sourceEndRowNum = Number(sourceEndRow);
 
-	// Parse target start cell
 	const targetMatch = targetStartCell.match(/^([A-Z]+)(\d+)$/);
 	if (!targetMatch) throw new Error(`Invalid target cell: ${targetStartCell}`);
 	const [, targetStartCol, targetStartRow] = targetMatch;
-	const targetStartColNum = colToNumber(targetStartCol);
+	const targetStartColNum = targetSheet.getColumn(targetStartCol).number;
 	const targetStartRowNum = Number(targetStartRow);
 
-	// Calculate offsets
 	const rowOffset = targetStartRowNum - sourceStartRowNum;
 	const colOffset = targetStartColNum - sourceStartColNum;
 
-	// Copy all cells in the range
 	for (let row = sourceStartRowNum; row <= sourceEndRowNum; row++) {
 		for (let col = sourceStartColNum; col <= sourceEndColNum; col++) {
-			const sourceCell = sourceSheet.getCell(row, col);
+			const sourceCell = src.getCell(row, col);
 			const targetCell = targetSheet.getCell(row + rowOffset, col + colOffset);
 			copyCellProperties(sourceCell, targetCell);
 		}
 	}
 
-	// Copy column widths
 	for (let col = sourceStartColNum; col <= sourceEndColNum; col++) {
-		const sourceColumn = sourceSheet.getColumn(col);
-		const targetColumn = targetSheet.getColumn(col + colOffset);
-		if (sourceColumn.width !== undefined) {
-			targetColumn.width = sourceColumn.width;
-		}
+		targetSheet.getColumn(col + colOffset).width = src.getColumn(col).width;
 	}
 
-	// Copy row heights, hidden state, and row-level styles
 	for (let row = sourceStartRowNum; row <= sourceEndRowNum; row++) {
-		const sourceRow = sourceSheet.getRow(row);
-		const targetRow = targetSheet.getRow(row + rowOffset);
-		if (sourceRow.height !== undefined) {
-			targetRow.height = sourceRow.height;
-		}
+		targetSheet.getRow(row + rowOffset).height = src.getRow(row).height;
 	}
 
-	// Copy merged cells that overlap with the source range
-	if (sourceSheet.model?.merges) {
-		sourceSheet.model.merges.forEach((mergeRange) => {
+	if (src.model?.merges) {
+		src.model.merges.forEach((mergeRange) => {
 			if (!mergeRange) return;
 
-			const parsed = parseMergeRange(mergeRange);
+			const parsed = parseMergeRange(src, mergeRange);
 			if (!parsed) return;
 
-			// Check if merge overlaps with source range
 			const overlaps =
 				parsed.startRow <= sourceEndRowNum &&
 				parsed.endRow >= sourceStartRowNum &&
@@ -292,48 +114,50 @@ export function copyCellRange({
 				parsed.endCol >= sourceStartColNum;
 
 			if (overlaps) {
-				// Calculate intersection with source range
 				const intersectStartRow = Math.max(parsed.startRow, sourceStartRowNum);
 				const intersectEndRow = Math.min(parsed.endRow, sourceEndRowNum);
 				const intersectStartCol = Math.max(parsed.startCol, sourceStartColNum);
 				const intersectEndCol = Math.min(parsed.endCol, sourceEndColNum);
 
-				// Only merge if we have more than one cell
 				const hasMultipleCells = intersectEndRow > intersectStartRow || intersectEndCol > intersectStartCol;
 
 				if (hasMultipleCells) {
-					// Translate to target position
 					const targetStartRow = intersectStartRow + rowOffset;
 					const targetEndRow = intersectEndRow + rowOffset;
 					const targetStartColNum = intersectStartCol + colOffset;
 					const targetEndColNum = intersectEndCol + colOffset;
 
-					// Create new merge range
-					const newRange = `${numberToCol(targetStartColNum)}${targetStartRow}:${numberToCol(targetEndColNum)}${targetEndRow}`;
+					const newRange = `${targetSheet.getColumn(targetStartColNum).letter}${targetStartRow}:${targetSheet.getColumn(targetEndColNum).letter}${targetEndRow}`;
 
-					// Check if cells are already merged - if so, unmerge first
 					const startCell = targetSheet.getCell(targetStartRow, targetStartColNum);
 					if (startCell.isMerged) {
 						try {
 							targetSheet.unMergeCells(newRange);
-						} catch {
-							// Ignore unmerge errors
-						}
+						} catch {}
 					}
 
 					try {
 						targetSheet.mergeCells(newRange);
 					} catch {
-						// Merge might already exist or be invalid
-						// Try alternative merge method using coordinates
 						try {
 							targetSheet.mergeCells(targetStartRow, targetStartColNum, targetEndRow, targetEndColNum);
-						} catch {
-							// If all methods fail, skip this merge
-						}
+						} catch {}
 					}
 				}
 			}
 		});
 	}
+}
+
+function parseMergeRange(sheet: Excel.Worksheet, range: string) {
+	const match = range.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
+	if (!match) return null;
+	const [, startCol, startRow, endCol, endRow] = match;
+
+	return {
+		startRow: Number(startRow),
+		endRow: Number(endRow),
+		startCol: sheet.getColumn(startCol).number,
+		endCol: sheet.getColumn(endCol).number,
+	};
 }

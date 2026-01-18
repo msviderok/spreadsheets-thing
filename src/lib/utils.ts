@@ -45,3 +45,27 @@ export const CATEGORY_MAP: Record<any, number> = {
 	V: 4,
 	5: 4,
 };
+
+function extractCaliber(str: string) {
+	const match = str.match(/(\d+(?:[.,]\d+)?)(?=\s*мм)?/i);
+	if (!match) return null;
+
+	return parseFloat(match[1].replace(",", "."));
+}
+
+export function sortByCaliber(a: string, b: string) {
+	const calA = extractCaliber(a);
+	const calB = extractCaliber(b);
+
+	// If both have calibers → numeric compare
+	if (calA !== null && calB !== null) {
+		if (calA !== calB) return calA - calB;
+	}
+
+	// If only one has caliber → push missing ones to the end
+	if (calA === null) return 1;
+	if (calB === null) return -1;
+
+	// Same caliber → locale-aware text sort (Ukrainian)
+	return a.localeCompare(b, "uk", { sensitivity: "base" });
+}

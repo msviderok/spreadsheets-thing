@@ -7,8 +7,10 @@ import DataPreview from "@/components/DataPreview";
 import { Input } from "@/components/input";
 import { Label } from "@/components/label";
 import { buildContentsSheet } from "@/lib/buildContentsSheet";
+import { buildExtraSheet } from "@/lib/buildExtraSheed";
 import { buildOutputPages } from "@/lib/buildOutputPages";
-import { CATEGORY_MAP, formatDate } from "@/lib/utils";
+import { copyWorksheet } from "@/lib/copy";
+import { CATEGORY_MAP, formatDate, sortByCaliber } from "@/lib/utils";
 import mockDb from "../mock.xlsx?url";
 import workbookUrl from "../output_template.xlsx?url";
 
@@ -90,6 +92,7 @@ declare global {
 				statements: Statement[];
 			};
 		};
+		listArray: string[];
 	}
 }
 
@@ -98,6 +101,10 @@ function processData(sheet: Excel.Worksheet | undefined) {
 
 	const data: Data = {
 		list: {},
+		get listArray() {
+			return Object.keys(this.list).sort(sortByCaliber);
+		},
+
 		entities: new Set(),
 		get entitiesArray() {
 			return Array.from(this.entities)
@@ -190,6 +197,20 @@ function processData(sheet: Excel.Worksheet | undefined) {
 
 async function generateOutputFile(data: Data, templateWorkbook: Excel.Workbook) {
 	const newWorkbook = new Excel.Workbook();
+	const contentsTemplate = templateWorkbook.getWorksheet("CONTENTS")!;
+	const extraTemplate = templateWorkbook.getWorksheet("EXTRA")!;
+
+	const contentsSheet = copyWorksheet({
+		template: contentsTemplate,
+		workbook: newWorkbook,
+		newSheetName: "Зміст",
+	});
+
+	const extraSheet = copyWorksheet({
+		template: extraTemplate,
+		workbook: newWorkbook,
+		newSheetName: "Додаток 1",
+	});
 
 	buildOutputPages({
 		templateWorkbook,
@@ -197,11 +218,8 @@ async function generateOutputFile(data: Data, templateWorkbook: Excel.Workbook) 
 		data,
 	});
 
-	buildContentsSheet({
-		templateWorkbook,
-		workbook: newWorkbook,
-		data,
-	});
+	buildContentsSheet({ data, sheet: contentsSheet });
+	buildExtraSheet({ data, sheet: extraSheet });
 
 	const buffer = await newWorkbook.xlsx.writeBuffer();
 	return buffer;

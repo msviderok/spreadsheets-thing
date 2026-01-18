@@ -1,5 +1,5 @@
 import type Excel from "exceljs";
-import { copyCellRange, copyCellStyle, copyWorksheet } from "./copy";
+import { copyCellRange, copyWorksheet } from "./copy";
 import { sanitizeStr } from "./utils";
 
 const FIRST_ROW = 13;
@@ -17,7 +17,6 @@ export function buildOutputPages({
 	data: Data;
 }): void {
 	const outputPageTemplate = templateWorkbook.getWorksheet("OUTPUT_PAGE")!;
-	const HEIGHT = outputPageTemplate.getRow(FIRST_ROW).height;
 
 	for (const name in data.list) {
 		const outputPageSheet = copyWorksheet({
@@ -26,15 +25,8 @@ export function buildOutputPages({
 			newSheetName: sanitizeStr(name),
 		});
 
-		outputPageSheet.getCell("F5").value = name;
-		outputPageSheet.getCell("B3").value = {
-			text: "←Повернутись на зміст",
-			hyperlink: `#'Зміст'!A1`,
-		};
-
 		const COLUMNS_PER_ENTITY = 6; // O, P, Q, R, S, T
 		const SOURCE_RANGE = "O8:T13";
-		const DATA_ROW = outputPageSheet.getRow(FIRST_ROW);
 		const addresses: Record<string, string[]> = {};
 
 		data.entitiesArray.forEach((entity, entityIndex) => {
@@ -69,6 +61,8 @@ export function buildOutputPages({
 
 			addresses[entity] = entityColumns;
 		});
+
+		outputPageSheet.duplicateRow(FIRST_ROW, data.list[name]!.statements.length, true);
 
 		const colCount = outputPageSheet.actualColumnCount;
 		const lastCol = outputPageSheet.getColumn(colCount).letter;
@@ -141,39 +135,20 @@ export function buildOutputPages({
 		});
 
 		outputPageSheet.fillFormula(`A12:${lastCol}12`, "COLUMN()");
-		outputPageSheet.fillFormula(
-			`I${FIRST_ROW}:I${row}`,
-			`SUMPRODUCT((MOD(COLUMN(O${FIRST_ROW}:${lastCol}${FIRST_ROW})-COLUMN(O${FIRST_ROW}),6)=0)*O${FIRST_ROW}:${lastCol}${FIRST_ROW})`,
-		);
-		outputPageSheet.fillFormula(
-			`J${FIRST_ROW}:J${row}`,
-			`SUMPRODUCT((MOD(COLUMN(P${FIRST_ROW}:${lastCol}${FIRST_ROW})-COLUMN(P${FIRST_ROW}),6)=0)*P${FIRST_ROW}:${lastCol}${FIRST_ROW})`,
-		);
-		outputPageSheet.fillFormula(
-			`K${FIRST_ROW}:K${row}`,
-			`SUMPRODUCT((MOD(COLUMN(Q${FIRST_ROW}:${lastCol}${FIRST_ROW})-COLUMN(Q${FIRST_ROW}),6)=0)*Q${FIRST_ROW}:${lastCol}${FIRST_ROW})`,
-		);
-		outputPageSheet.fillFormula(
-			`L${FIRST_ROW}:L${row}`,
-			`SUMPRODUCT((MOD(COLUMN(R${FIRST_ROW}:${lastCol}${FIRST_ROW})-COLUMN(R${FIRST_ROW}),6)=0)*R${FIRST_ROW}:${lastCol}${FIRST_ROW})`,
-		);
-		outputPageSheet.fillFormula(
-			`M${FIRST_ROW}:M${row}`,
-			`SUMPRODUCT((MOD(COLUMN(S${FIRST_ROW}:${lastCol}${FIRST_ROW})-COLUMN(S${FIRST_ROW}),6)=0)*S${FIRST_ROW}:${lastCol}${FIRST_ROW})`,
-		);
-		outputPageSheet.fillFormula(
-			`N${FIRST_ROW}:N${row}`,
-			`SUMPRODUCT((MOD(COLUMN(T${FIRST_ROW}:${lastCol}${FIRST_ROW})-COLUMN(T${FIRST_ROW}),6)=0)*T${FIRST_ROW}:${lastCol}${FIRST_ROW})`,
-		);
 
-		outputPageSheet.eachRow((row, rowNumber) => {
-			if (rowNumber >= FIRST_ROW) {
-				row.height = HEIGHT;
-				row.eachCell({ includeEmpty: true }, (cell) => {
-					copyCellStyle(DATA_ROW.getCell(cell.col), cell);
-				});
-				row.commit();
-			}
+		const totalColumns = [
+			["I", "O"],
+			["J", "P"],
+			["K", "Q"],
+			["L", "R"],
+			["M", "S"],
+			["N", "T"],
+		];
+		totalColumns.forEach(([target, src]) => {
+			outputPageSheet.fillFormula(
+				`${target}${FIRST_ROW}:${target}${row}`,
+				`SUMPRODUCT((MOD(COLUMN(${src}${FIRST_ROW}:${lastCol}${FIRST_ROW})-COLUMN(${src}${FIRST_ROW}),6)=0)*${src}${FIRST_ROW}:${lastCol}${FIRST_ROW})`,
+			);
 		});
 
 		outputPageSheet.addConditionalFormatting({
@@ -199,5 +174,12 @@ export function buildOutputPages({
 				},
 			],
 		});
+
+		outputPageSheet.views = [{ state: "frozen", xSplit: 14, ySplit: 12 }];
+		outputPageSheet.getCell("F5").value = name;
+		outputPageSheet.getCell("B3").value = {
+			text: "←Повернутись на зміст",
+			hyperlink: `#'Зміст'!A1`,
+		};
 	}
 }
