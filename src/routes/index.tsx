@@ -71,6 +71,7 @@ declare global {
 		to?: string;
 		quantityIn?: number;
 		quantityOut?: number;
+		takeValueFrom?: "in" | "out";
 		entities: {
 			[entity: string]: {
 				operation: 1 | -1;
@@ -142,11 +143,13 @@ function processData(sheet: Excel.Worksheet | undefined) {
 			const q = Number(quantity);
 			let quantityIn: number | undefined;
 			let quantityOut: number | undefined;
+			let takeValueFrom: "in" | "out" | undefined;
 			let entities: Statement["entities"] = {};
 
 			if (knownFrom && knownTo) {
 				quantityIn = q;
 				quantityOut = undefined;
+				takeValueFrom = "in";
 				entities = {
 					[from]: { operation: -1, categories: { [category]: q } },
 					[to]: { operation: 1, categories: { [category]: q } },
@@ -154,12 +157,14 @@ function processData(sheet: Excel.Worksheet | undefined) {
 			} else if (knownFrom && (knownTo === false || to == null || to === "")) {
 				quantityIn = undefined;
 				quantityOut = q;
+				takeValueFrom = "out";
 				entities = {
 					[from]: { operation: -1, categories: { [category]: q } },
 				};
 			} else if ((knownFrom === false || from == null || from === "") && knownTo) {
 				quantityIn = q;
 				quantityOut = undefined;
+				takeValueFrom = "in";
 				entities = {
 					[to]: { operation: 1, categories: { [category]: q } },
 				};
@@ -174,12 +179,12 @@ function processData(sheet: Excel.Worksheet | undefined) {
 				to,
 				quantityIn,
 				quantityOut,
+				takeValueFrom,
 				entities,
 			});
 		}
 	}
 
-	console.log(data);
 	return data;
 }
 

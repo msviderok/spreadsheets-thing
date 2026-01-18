@@ -1,47 +1,19 @@
 import Excel from "exceljs";
 
-/**
- * Copies all properties from a source cell to a target cell
- */
 export function copyCellProperties(sourceCell: Excel.Cell, targetCell: Excel.Cell): void {
-	// Copy cell value
-	if (sourceCell.type === Excel.ValueType.Formula) {
-		const formulaValue = sourceCell.value as Excel.CellFormulaValue;
-		targetCell.value = {
-			formula: formulaValue.formula,
-			result: formulaValue.result,
-		};
-	} else {
-		targetCell.value = sourceCell.value;
-	}
-
-	if (sourceCell.numFmt) targetCell.numFmt = sourceCell.numFmt;
-
-	if (sourceCell.protection) {
-		targetCell.protection = JSON.parse(JSON.stringify(sourceCell.protection));
-	}
-
-	if (sourceCell.style) {
-		targetCell.style = JSON.parse(JSON.stringify(sourceCell.style));
-	}
+	targetCell.value = sourceCell.value;
+	targetCell.numFmt = sourceCell.numFmt;
+	targetCell.protection = sourceCell.protection;
+	targetCell.style = sourceCell.style;
 
 	copyCellStyle(sourceCell, targetCell);
 }
 
 export function copyCellStyle(sourceCell: Excel.Cell, targetCell: Excel.Cell): void {
-	// Copy all cell properties
-	if (sourceCell.border) {
-		targetCell.border = JSON.parse(JSON.stringify(sourceCell.border));
-	}
-	if (sourceCell.fill) {
-		targetCell.fill = JSON.parse(JSON.stringify(sourceCell.fill));
-	}
-	if (sourceCell.font) {
-		targetCell.font = JSON.parse(JSON.stringify(sourceCell.font));
-	}
-	if (sourceCell.alignment) {
-		targetCell.alignment = JSON.parse(JSON.stringify(sourceCell.alignment));
-	}
+	targetCell.border = sourceCell.border;
+	targetCell.fill = sourceCell.fill;
+	targetCell.font = sourceCell.font;
+	targetCell.alignment = sourceCell.alignment;
 }
 
 export function copyWorksheet({
