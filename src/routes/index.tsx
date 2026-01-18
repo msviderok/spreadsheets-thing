@@ -1,18 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
 import Excel from "exceljs";
-import fileSaver from "file-saver";
+import { saveAs } from "file-saver";
+import { FileUp, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
-import DataPreview from "@/components/DataPreview";
+import { Collapsible, CollapsibleContent } from "@/components/collapsible";
 import { Input } from "@/components/input";
 import { Label } from "@/components/label";
-import { buildContentsSheet } from "@/lib/buildContentsSheet";
-import { buildExtraSheet } from "@/lib/buildExtraSheed";
-import { buildOutputPages } from "@/lib/buildOutputPages";
-import { copyWorksheet } from "@/lib/copy";
-import { CATEGORY_MAP, formatDate, sortByCaliber } from "@/lib/utils";
+import { generateOutputFile } from "@/lib/generate";
+import { processData } from "@/lib/processData";
 import mockDb from "../mock.xlsx?url";
 import workbookUrl from "../output_template.xlsx?url";
+
+const pluralize = (count: number, one: string, few: string, many: string) => {
+	if (count === 1) return one;
+	if (count % 10 === 1 && count % 100 !== 11) return one;
+	if (count % 10 === 2 && count % 100 !== 12) return few;
+	if (count % 10 === 3 && count % 100 !== 13) return few;
+	if (count % 10 === 4 && count % 100 !== 14) return few;
+	return many;
+};
 
 export const Route = createFileRoute("/")({
 	ssr: false,
@@ -28,201 +36,122 @@ export const Route = createFileRoute("/")({
 
 function App() {
 	const workbook = Route.useLoaderData();
-	const [sheet, setSheet] = useState<Excel.Worksheet>();
+	const [data, setData] = useState<Data | null>(null);
 	const [buffer, setBuffer] = useState<ArrayBuffer>();
-	useEffect(() => void loadInputFile().then(setSheet), []);
+	const [fileName, setFileName] = useState<string>();
+	const [loading, setLoading] = useState(false);
 
 	useEffect(() => {
-		if (!sheet) return;
+		const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+			e.preventDefault();
+			e.returnValue = "";
+		};
 
-		const data = processData(sheet);
-		if (data) {
-			generateOutputFile(data, workbook).then(setBuffer);
-		}
-	}, [sheet]);
+		window.addEventListener("beforeunload", handleBeforeUnload);
+		return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+	}, []);
 
 	return (
-		<div className="min-h-screen flex flex-col gap-4 p-4 text-xs">
-			<div className="grid w-full max-w-sm items-center gap-3">
-				<Label htmlFor="picture">Upload Excel File</Label>
-				<Input id="picture" type="file" />
+		<div className="min-h-screen bg-background flex items-center justify-center p-6">
+			<div className="max-w-2xl w-full">
+				<div className="flex flex-col gap-4">
+					<div className="mb-8 flex items-start justify-between">
+						<div className="flex flex-col gap-2 w-full">
+							<h1 className="text-3xl font-bold text-foreground mb-2 uppercase">Додаток 47 – на радість усім</h1>
+							<ul className="list-disc list-inside">
+								<li>Дані не завантажуються на сервер.</li>
+								<li>Дані не зберігаються на сервері.</li>
+								<li>Всі дані обробляються локально на Вашому пристрої.</li>
+								<li>Файл для скачування генерується локально на Вашому пристрої.</li>
+							</ul>
+						</div>
+					</div>
+
+					<div className="flex items-center gap-4">
+						<div>
+							<Label htmlFor="file" className="contents">
+								<div className="flex items-center justify-center gap-2 border w-max p-3 rounded-sm bg-card cursor-pointer hover:bg-secondary transition-colors">
+									<FileUp className="size-5 text-foreground" />
+									<span className="text-sm text-muted-foreground">
+										{fileName ?? (
+											<>
+												Оберіть файл <strong>.xlsx</strong>
+											</>
+										)}
+									</span>
+								</div>
+							</Label>
+							<Input
+								hidden
+								id="file"
+								type="file"
+								accept=".xlsx"
+								className="hidden"
+								onChange={async (e) => {
+									const file = e.target.files?.[0];
+									if (!file) return;
+
+									const inputData = await loadInputFile(file);
+									const data = processData(inputData);
+									setData(data);
+									setFileName(file.name);
+								}}
+							/>
+						</div>
+
+						{data ? (
+							<Button
+								size="lg"
+								className="h-[46px] rounded-sm px-4 text-sm"
+								onClick={() => {
+									if (!data) return;
+									setLoading(true);
+									generateOutputFile(data, workbook).then((buffer) => {
+										setBuffer(buffer);
+										setLoading(false);
+										setData(null);
+									});
+								}}
+							>
+								Згенерувати файли
+							</Button>
+						) : buffer ? (
+							<Button
+								size="lg"
+								className="h-[46px] rounded-sm px-4 text-sm bg-green-500 text-white hover:bg-green-600"
+								onClick={() => {
+									saveAs(new Blob([buffer]), "output.xlsx");
+								}}
+							>
+								Скачати файли
+							</Button>
+						) : null}
+
+						{loading && (
+							<div className="flex items-center gap-2">
+								<Loader2 className="size-7 text-foreground animate-spin" />
+								<span className="text-sm text-muted-foreground">Файли генеруються...</span>
+							</div>
+						)}
+					</div>
+
+					{data && (
+						<div className="text-md text-muted-foreground uppercase tracking-wide mt-2">
+							Буде згенеровано{" "}
+							<Badge variant="secondary" className="text-md p-3">
+								{data!.listArray.length}
+							</Badge>{" "}
+							{pluralize(data!.listArray.length, "сторінка", "сторінки", "сторінок")} з даними для{" "}
+							<Badge variant="secondary" className="text-md p-3">
+								{data!.entitiesArray.length}
+							</Badge>{" "}
+							{pluralize(data!.entitiesArray.length, "підрозділу", "підрозділів", "підрозділів")}
+						</div>
+					)}
+				</div>
 			</div>
-
-			{sheet && <DataPreview sheet={sheet} />}
-
-			<Button
-				onClick={() => {
-					if (buffer) {
-						fileSaver.saveAs(new Blob([buffer]), "output.xlsx");
-					}
-				}}
-			>
-				Generate Output
-			</Button>
 		</div>
 	);
-}
-
-declare global {
-	interface Statement {
-		date: string;
-		docName?: string;
-		docNumber?: string;
-		docDate?: string;
-		from?: string;
-		to?: string;
-		quantityIn?: number;
-		quantityOut?: number;
-		takeValueFrom?: "in" | "out";
-		entities: {
-			[entity: string]: {
-				operation: 1 | -1;
-				categories: {
-					[category: number]: number;
-				};
-			};
-		};
-	}
-	interface Data {
-		entities: Set<string>;
-		entitiesArray: string[];
-		list: {
-			[name: string]: {
-				leftovers: Statement;
-				statements: Statement[];
-			};
-		};
-		listArray: string[];
-	}
-}
-
-function processData(sheet: Excel.Worksheet | undefined) {
-	if (!sheet) return null;
-
-	const data: Data = {
-		list: {},
-		get listArray() {
-			return Object.keys(this.list).sort(sortByCaliber);
-		},
-
-		entities: new Set(),
-		get entitiesArray() {
-			return Array.from(this.entities)
-				.filter((entity) => {
-					if (entity === "-" || entity === undefined || entity === "") return false;
-
-					const l = entity.toLocaleLowerCase();
-					if ((l.startsWith("a") || l.startsWith("а")) && l !== "a1815" && l !== "а1815") return false;
-					return true;
-				})
-				.sort((a, b) => a.localeCompare(b));
-		},
-	};
-	for (const r of sheet.getSheetValues().slice(2)) {
-		if (Array.isArray(r) === false) {
-			continue;
-		}
-
-		const row = r.slice(1);
-		const [date, name, docName, docNumber, docDate, from, to, price, romanCategory, quantity] = row as string[];
-		data.entities.add(from);
-		data.entities.add(to);
-		const category = CATEGORY_MAP[romanCategory];
-
-		if (!data.list[name]) {
-			data.list[name] = { leftovers: { date: "", entities: {} }, statements: [] };
-		}
-
-		if (docName === "Перенесено з книги №10") {
-			if (data.list[name]!.leftovers.date === "") {
-				data.list[name]!.leftovers.date = formatDate(date);
-			}
-
-			if (!data.list[name]!.leftovers.entities[to]) {
-				data.list[name]!.leftovers.entities[to] = { operation: 1, categories: {} };
-			}
-
-			data.list[name]!.leftovers.entities[to].categories[category] = Number(quantity);
-		} else {
-			const knownFrom = data.entitiesArray.includes(from);
-			const knownTo = data.entitiesArray.includes(to);
-
-			const q = Number(quantity);
-			let quantityIn: number | undefined;
-			let quantityOut: number | undefined;
-			let takeValueFrom: "in" | "out" | undefined;
-			let entities: Statement["entities"] = {};
-
-			if (knownFrom && knownTo) {
-				quantityIn = q;
-				quantityOut = undefined;
-				takeValueFrom = "in";
-				entities = {
-					[from]: { operation: -1, categories: { [category]: q } },
-					[to]: { operation: 1, categories: { [category]: q } },
-				};
-			} else if (knownFrom && (knownTo === false || to == null || to === "")) {
-				quantityIn = undefined;
-				quantityOut = q;
-				takeValueFrom = "out";
-				entities = {
-					[from]: { operation: -1, categories: { [category]: q } },
-				};
-			} else if ((knownFrom === false || from == null || from === "") && knownTo) {
-				quantityIn = q;
-				quantityOut = undefined;
-				takeValueFrom = "in";
-				entities = {
-					[to]: { operation: 1, categories: { [category]: q } },
-				};
-			}
-
-			data.list[name]!.statements.push({
-				date: formatDate(date),
-				docName,
-				docNumber,
-				docDate: formatDate(docDate),
-				from,
-				to,
-				quantityIn,
-				quantityOut,
-				takeValueFrom,
-				entities,
-			});
-		}
-	}
-
-	return data;
-}
-
-async function generateOutputFile(data: Data, templateWorkbook: Excel.Workbook) {
-	const newWorkbook = new Excel.Workbook();
-	const contentsTemplate = templateWorkbook.getWorksheet("CONTENTS")!;
-	const extraTemplate = templateWorkbook.getWorksheet("EXTRA")!;
-
-	const contentsSheet = copyWorksheet({
-		template: contentsTemplate,
-		workbook: newWorkbook,
-		newSheetName: "Зміст",
-	});
-
-	const extraSheet = copyWorksheet({
-		template: extraTemplate,
-		workbook: newWorkbook,
-		newSheetName: "Додаток 1",
-	});
-
-	buildOutputPages({
-		templateWorkbook,
-		workbook: newWorkbook,
-		data,
-	});
-
-	buildContentsSheet({ data, sheet: contentsSheet });
-	buildExtraSheet({ data, sheet: extraSheet });
-
-	const buffer = await newWorkbook.xlsx.writeBuffer();
-	return buffer;
 }
 
 async function loadInputFile(file?: File) {

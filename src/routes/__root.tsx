@@ -15,7 +15,7 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
 	return (
-		<html lang="en" className="min-h-screen min-w-screen w-full overflow-auto">
+		<html lang="en" className="dark min-h-screen min-w-screen w-full overflow-auto">
 			<head>
 				<HeadContent />
 			</head>
