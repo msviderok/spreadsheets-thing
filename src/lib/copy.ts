@@ -1,12 +1,14 @@
 import type Excel from "exceljs";
 
-export function copyCellProperties(sourceCell: Excel.Cell, targetCell: Excel.Cell): void {
+export function copyCellProperties(sourceCell: Excel.Cell, targetCell: Excel.Cell, onlyText = false): void {
 	targetCell.value = sourceCell.value;
 	targetCell.numFmt = sourceCell.numFmt;
 	targetCell.protection = sourceCell.protection;
 	targetCell.style = sourceCell.style;
 
-	copyCellStyle(sourceCell, targetCell);
+	if (!onlyText) {
+		copyCellStyle(sourceCell, targetCell);
+	}
 }
 
 export function copyCellStyle(sourceCell: Excel.Cell, targetCell: Excel.Cell): void {
@@ -60,11 +62,13 @@ export function copyCellRange({
 	targetSheet,
 	sourceRange,
 	targetStartCell,
+	onlyText = false,
 }: {
 	sourceSheet?: Excel.Worksheet;
 	targetSheet: Excel.Worksheet;
 	sourceRange: string;
 	targetStartCell: string;
+	onlyText?: boolean;
 }): void {
 	const src = sourceSheet ?? targetSheet;
 	const sourceMatch = sourceRange.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
@@ -88,16 +92,18 @@ export function copyCellRange({
 		for (let col = sourceStartColNum; col <= sourceEndColNum; col++) {
 			const sourceCell = src.getCell(row, col);
 			const targetCell = targetSheet.getCell(row + rowOffset, col + colOffset);
-			copyCellProperties(sourceCell, targetCell);
+			copyCellProperties(sourceCell, targetCell, onlyText);
 		}
 	}
 
-	for (let col = sourceStartColNum; col <= sourceEndColNum; col++) {
-		targetSheet.getColumn(col + colOffset).width = src.getColumn(col).width;
-	}
+	if (!onlyText) {
+		for (let col = sourceStartColNum; col <= sourceEndColNum; col++) {
+			targetSheet.getColumn(col + colOffset).width = src.getColumn(col).width;
+		}
 
-	for (let row = sourceStartRowNum; row <= sourceEndRowNum; row++) {
-		targetSheet.getRow(row + rowOffset).height = src.getRow(row).height;
+		for (let row = sourceStartRowNum; row <= sourceEndRowNum; row++) {
+			targetSheet.getRow(row + rowOffset).height = src.getRow(row).height;
+		}
 	}
 
 	if (src.model?.merges) {

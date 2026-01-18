@@ -51,7 +51,8 @@ export function buildContentsSheet({ sheet, data }: { sheet: Excel.Worksheet; da
 
 		if (sheet.model?.merges) {
 			const mergesToRemove: string[] = [];
-			sheet.model.merges.forEach((mergeRange) => {
+			for (let i = 0; i < sheet.model.merges.length; i++) {
+				const mergeRange = sheet.model.merges[i];
 				if (!mergeRange) return;
 				const match = mergeRange.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
 				if (!match) return;
@@ -59,13 +60,14 @@ export function buildContentsSheet({ sheet, data }: { sheet: Excel.Worksheet; da
 				if (Number(startRow) === 1 && Number(endRow) === 1) {
 					mergesToRemove.push(mergeRange);
 				}
-			});
+			}
 
-			mergesToRemove.forEach((range) => {
+			for (let i = 0; i < mergesToRemove.length; i++) {
+				const range = mergesToRemove[i];
 				try {
 					sheet.unMergeCells(range);
 				} catch {}
-			});
+			}
 		}
 
 		sheet.mergeCells(1, 1, 1, columnGroupsNeeded * COLUMNS_PER_GROUP);
