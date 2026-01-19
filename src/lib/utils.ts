@@ -69,3 +69,15 @@ export function sortByCaliber(a: string, b: string) {
 	// Same caliber → locale-aware text sort (Ukrainian)
 	return a.localeCompare(b, "uk", { sensitivity: "base" });
 }
+
+export function formatBytes(bytes: number, decimals = 2) {
+	if (bytes === 0) return "0 B";
+
+	const k = 1024;
+	const dm = decimals < 0 ? 0 : decimals;
+	const sizes = ["B", "KB", "MB", "GB", "TB", "PB"];
+
+	const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+	return `${parseFloat((bytes / k ** i).toFixed(dm))} ${sizes[i]}`;
+}

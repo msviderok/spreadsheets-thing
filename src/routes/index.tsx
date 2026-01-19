@@ -1,15 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import Excel from "exceljs";
 import { saveAs } from "file-saver";
-import { FileUp, Loader2 } from "lucide-react";
+import { ArrowRight, ArrowRightFromLine, CheckCircle, Download, FileUp, Loader2, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Alert, AlertDescription } from "@/components/alert";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
-import { Collapsible, CollapsibleContent } from "@/components/collapsible";
 import { Input } from "@/components/input";
 import { Label } from "@/components/label";
 import { generateOutputFile } from "@/lib/generate";
 import { processData } from "@/lib/processData";
+import { cn, formatBytes } from "@/lib/utils";
 import mockDb from "../mock.xlsx?url";
 import workbookUrl from "../output_template.xlsx?url";
 
@@ -40,6 +41,9 @@ function App() {
 	const [buffer, setBuffer] = useState<ArrayBuffer>();
 	const [fileName, setFileName] = useState<string>();
 	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState<string>();
+
+	const fileSelected = !!data || !!buffer;
 
 	useEffect(() => {
 		const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -67,8 +71,8 @@ function App() {
 						</div>
 					</div>
 
-					<div className="flex items-center gap-4">
-						<div>
+					<div className="flex items-center gap-4 max-h-[46px] h-[46px] min-h-[46px]">
+						<div className="flex gap-2 h-[46px]">
 							<Label htmlFor="file" className="contents">
 								<div className="flex items-center justify-center gap-2 border w-max p-3 rounded-sm bg-card cursor-pointer hover:bg-secondary transition-colors">
 									<FileUp className="size-5 text-foreground" />
@@ -91,13 +95,37 @@ function App() {
 									const file = e.target.files?.[0];
 									if (!file) return;
 
-									const inputData = await loadInputFile(file);
-									const data = processData(inputData);
-									setData(data);
-									setFileName(file.name);
+									try {
+										const inputData = await loadInputFile(file);
+										const data = processData(inputData);
+										setData(data);
+										setFileName(file.name);
+										setError(undefined);
+									} catch (_e) {
+										setError("Некоректна структура файлу");
+										setFileName(file.name);
+										setData(null);
+									} finally {
+										setBuffer(undefined);
+										setLoading(false);
+									}
 								}}
 							/>
+
+							{error && (
+								<div className="flex items-center gap-2 bg-destructive/10 p-3 rounded-md">
+									<TriangleAlert className="size-5 text-destructive" />
+									<span className="text-sm text-destructive">{error}</span>
+								</div>
+							)}
 						</div>
+
+						<ArrowRight
+							className={cn(
+								"size-5 text-muted-foreground transition-transform duration-200 opacity-0",
+								fileSelected && "opacity-100",
+							)}
+						/>
 
 						{data ? (
 							<Button
@@ -118,12 +146,14 @@ function App() {
 						) : buffer ? (
 							<Button
 								size="lg"
-								className="h-[46px] rounded-sm px-4 text-sm bg-green-500 text-white hover:bg-green-600"
-								onClick={() => {
-									saveAs(new Blob([buffer]), "output.xlsx");
-								}}
+								className="h-[46px] rounded-sm px-4 text-sm max-h-[46px]"
+								onClick={() => saveAs(new Blob([buffer]), "Додаток 47.xlsx")}
 							>
-								Скачати файли
+								<Download className="size-5" />
+								<div className="flex flex-col justify-start items-start">
+									<span>Завантажити</span>
+									<span className="text-xs">{formatBytes(buffer.byteLength)}</span>
+								</div>
 							</Button>
 						) : null}
 
@@ -133,21 +163,31 @@ function App() {
 								<span className="text-sm text-muted-foreground">Файли генеруються...</span>
 							</div>
 						)}
+
+						{buffer && (
+							<div className="flex items-center gap-2 bg-green-500/10 p-3 rounded-md h-[46px] text-green-500/50">
+								<CheckCircle className="size-5" />
+								<span className="text-sm">Файл успішно згенеровано!</span>
+							</div>
+						)}
 					</div>
 
-					{data && (
-						<div className="text-md text-muted-foreground uppercase tracking-wide mt-2">
-							Буде згенеровано{" "}
-							<Badge variant="secondary" className="text-md p-3">
-								{data!.listArray.length}
-							</Badge>{" "}
-							{pluralize(data!.listArray.length, "сторінка", "сторінки", "сторінок")} з даними для{" "}
-							<Badge variant="secondary" className="text-md p-3">
-								{data!.entitiesArray.length}
-							</Badge>{" "}
-							{pluralize(data!.entitiesArray.length, "підрозділу", "підрозділів", "підрозділів")}
-						</div>
-					)}
+					<div
+						className={cn(
+							"text-md text-muted-foreground uppercase tracking-wide mt-2 opacity-0 transition-opacity duration-200",
+							data && "opacity-100",
+						)}
+					>
+						Буде згенеровано{" "}
+						<Badge variant="secondary" className="text-md p-3">
+							{data?.listArray.length}
+						</Badge>{" "}
+						{pluralize(data?.listArray.length ?? 0, "сторінка", "сторінки", "сторінок")} з даними для{" "}
+						<Badge variant="secondary" className="text-md p-3">
+							{data?.entitiesArray.length ?? 0}
+						</Badge>{" "}
+						{pluralize(data?.entitiesArray.length ?? 0, "підрозділу", "підрозділів", "підрозділів")}
+					</div>
 				</div>
 			</div>
 		</div>
