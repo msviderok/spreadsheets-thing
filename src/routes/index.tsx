@@ -1,9 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import Excel from "exceljs";
 import { saveAs } from "file-saver";
-import { ArrowRight, ArrowRightFromLine, CheckCircle, Download, FileUp, Loader2, TriangleAlert } from "lucide-react";
-import { useEffect, useState } from "react";
-import { Alert, AlertDescription } from "@/components/alert";
+import { ArrowRight, CheckCircle, Download, FileUp, Loader2, TriangleAlert } from "lucide-react";
+import { useState } from "react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { Input } from "@/components/input";
@@ -41,18 +40,7 @@ function App() {
 	const [fileName, setFileName] = useState<string>();
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string>();
-
 	const fileSelected = !!data || !!buffer;
-
-	useEffect(() => {
-		const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-			e.preventDefault();
-			e.returnValue = "";
-		};
-
-		window.addEventListener("beforeunload", handleBeforeUnload);
-		return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-	}, []);
 
 	return (
 		<div className="min-h-screen bg-background flex items-center justify-center p-6">
