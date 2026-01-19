@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import Excel from "exceljs";
 import { saveAs } from "file-saver";
-import { ArrowRight, CheckCircle, Download, FileUp, Loader2, TriangleAlert } from "lucide-react";
+import { CheckCircle, Download, FileUp, Loader2, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { Input } from "@/components/input";
 import { Label } from "@/components/label";
+import { copyWorksheet } from "@/lib/copy";
 import { generateOutputFile } from "@/lib/generate";
 import { processData } from "@/lib/processData";
 import { cn, formatBytes } from "@/lib/utils";
@@ -47,7 +48,7 @@ function App() {
 			<div className="max-w-2xl w-full">
 				<div className="flex flex-col gap-4">
 					<div className="mb-8 flex items-start justify-between">
-						<div className="flex flex-col gap-2 w-full">
+						<div className="flex flex-col gap-2 w-full items-start">
 							<h1 className="text-3xl font-bold text-foreground mb-2 uppercase">Додаток 47 – на радість усім</h1>
 							<ul className="list-disc list-inside">
 								<li>Дані не завантажуються на сервер.</li>
@@ -55,6 +56,23 @@ function App() {
 								<li>Всі дані обробляються локально на Вашому пристрої.</li>
 								<li>Файл для скачування генерується локально на Вашому пристрої.</li>
 							</ul>
+							<Button
+								variant="link"
+								className="text-blue-400/50 text-sm p-0"
+								onClick={async () => {
+									const newWorkbook = new Excel.Workbook();
+									copyWorksheet({
+										template: workbook.getWorksheet("INPUT")!,
+										workbook: newWorkbook,
+										newSheetName: "INPUT",
+									});
+									const buffer = await newWorkbook.xlsx.writeBuffer();
+									saveAs(new Blob([buffer]), "Вхідні дані для заповнення Додатку 47.xlsx");
+								}}
+							>
+								<Download className="size-4" />
+								<span>Завантажити шаблон для заповнення даних</span>
+							</Button>
 						</div>
 					</div>
 
@@ -83,7 +101,10 @@ function App() {
 									if (!file) return;
 
 									try {
-										const inputData = await loadInputFile(file);
+										const arrayBuffer = await file.arrayBuffer();
+										const inputDataWorkbook = new Excel.Workbook();
+										await inputDataWorkbook.xlsx.load(arrayBuffer);
+										const inputData = inputDataWorkbook.worksheets[0];
 										const data = processData(inputData);
 										setData(data);
 										setFileName(file.name);
@@ -106,13 +127,6 @@ function App() {
 								</div>
 							)}
 						</div>
-
-						<ArrowRight
-							className={cn(
-								"size-5 text-muted-foreground transition-transform duration-200 opacity-0",
-								fileSelected && "opacity-100",
-							)}
-						/>
 
 						{data ? (
 							<Button
@@ -150,14 +164,14 @@ function App() {
 								<span className="text-sm text-muted-foreground">Файли генеруються...</span>
 							</div>
 						)}
-
-						{buffer && (
-							<div className="flex items-center gap-2 bg-green-500/10 p-3 rounded-md h-[46px] text-green-500/50">
-								<CheckCircle className="size-5" />
-								<span className="text-sm">Файл успішно згенеровано!</span>
-							</div>
-						)}
 					</div>
+
+					{buffer && (
+						<div className="flex items-center gap-2 bg-green-500/10 p-3 rounded-md h-[46px] text-green-500/50">
+							<CheckCircle className="size-5" />
+							<span className="text-sm">Файл успішно згенеровано!</span>
+						</div>
+					)}
 
 					<div
 						className={cn(
