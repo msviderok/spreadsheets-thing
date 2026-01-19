@@ -11,7 +11,6 @@ import { Label } from "@/components/label";
 import { generateOutputFile } from "@/lib/generate";
 import { processData } from "@/lib/processData";
 import { cn, formatBytes } from "@/lib/utils";
-import mockDb from "../mock.xlsx?url";
 import workbookUrl from "../output_template.xlsx?url";
 
 const pluralize = (count: number, one: string, few: string, many: string) => {
@@ -194,16 +193,8 @@ function App() {
 	);
 }
 
-async function loadInputFile(file?: File) {
-	let arrayBuffer: ArrayBuffer | undefined;
-	if (!file) {
-		const mockResponse = await fetch(mockDb);
-		const mockArrayBuffer = await mockResponse.arrayBuffer();
-		arrayBuffer = mockArrayBuffer;
-	} else {
-		arrayBuffer = await file.arrayBuffer();
-	}
-
+async function loadInputFile(file: File) {
+	const arrayBuffer = await file.arrayBuffer();
 	const inputDataWorkbook = new Excel.Workbook();
 	await inputDataWorkbook.xlsx.load(arrayBuffer);
 	return inputDataWorkbook.worksheets[0];
